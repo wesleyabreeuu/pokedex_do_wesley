@@ -21,9 +21,28 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+  background: #f4f8ff;
   font-family: "Trebuchet MS", Arial, sans-serif;
   color: var(--text);
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: url("https://commons.wikimedia.org/wiki/Special:FilePath/International_Pok%C3%A9mon_logo.svg") center center / min(1180px, 88vw) auto no-repeat;
+  opacity: 0.13;
+  transform-origin: center;
+  animation: logo-breathe 8s ease-in-out infinite;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 a {
@@ -39,10 +58,99 @@ img {
 .app-stage {
   width: 100%;
   min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.intro-shell {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.intro-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
   display: grid;
   place-items: center;
-  gap: 1.5rem;
-  padding: 1rem;
+  background:
+    radial-gradient(circle at center, rgba(255, 255, 255, 0.18), transparent 24%),
+    linear-gradient(180deg, rgba(37, 105, 176, 0.86), rgba(17, 46, 92, 0.92));
+  animation: intro-fade 1.65s ease forwards;
+}
+
+.intro-card {
+  display: grid;
+  justify-items: center;
+  gap: 0.75rem;
+  color: #f8fbff;
+  text-align: center;
+}
+
+.intro-card strong {
+  font-size: clamp(1.4rem, 4vw, 2.4rem);
+  letter-spacing: 0.04em;
+}
+
+.intro-card span {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.intro-pokeball {
+  position: relative;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  border: 8px solid #20232a;
+  overflow: hidden;
+  animation: intro-pop 1.1s ease;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.intro-pokeball__top,
+.intro-pokeball__bottom {
+  position: absolute;
+  inset-inline: 0;
+  height: 50%;
+}
+
+.intro-pokeball__top {
+  top: 0;
+  background: #ef314f;
+}
+
+.intro-pokeball__bottom {
+  bottom: 0;
+  background: #f7f9ff;
+}
+
+.intro-pokeball__center {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 8px solid #20232a;
+  background: #f7f9ff;
+  box-shadow: 0 0 0 10px #f7f9ff;
+}
+
+.intro-pokeball::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 8px;
+  transform: translateY(-50%);
+  background: #20232a;
 }
 
 .pokedex-shell {
@@ -56,6 +164,17 @@ img {
     inset 6px 0 0 rgba(255, 255, 255, 0.08),
     inset -8px 0 0 rgba(0, 0, 0, 0.08),
     0 24px 36px rgba(97, 44, 60, 0.3);
+  transition: opacity 380ms ease, transform 380ms ease;
+}
+
+.pokedex-shell--hidden {
+  opacity: 0;
+  transform: translateY(18px) scale(0.96);
+}
+
+.pokedex-shell--ready {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .pokedex-shell::before {
@@ -216,6 +335,10 @@ img {
   color: #fff0f0;
 }
 
+.search-feedback.is-error {
+  color: #fff6cf;
+}
+
 .tab-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -224,6 +347,7 @@ img {
 }
 
 .tab-button {
+  appearance: none;
   min-height: 34px;
   display: grid;
   place-items: center;
@@ -236,6 +360,7 @@ img {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     0 2px 0 rgba(8, 57, 83, 0.28);
+  cursor: pointer;
 }
 
 .tab-button.is-active {
@@ -369,6 +494,31 @@ img {
   background: rgba(249, 234, 240, 0.7);
 }
 
+.stack-item--highlight {
+  margin-top: 0.2rem;
+  border: 1px solid rgba(13, 95, 130, 0.2);
+  background: rgba(224, 247, 255, 0.78);
+}
+
+.fatal-error {
+  width: min(100%, 520px);
+  padding: 1.5rem;
+  border-radius: 22px;
+  border: 3px solid rgba(115, 16, 45, 0.18);
+  background: rgba(255, 247, 247, 0.82);
+  text-align: center;
+  box-shadow: 0 24px 36px rgba(97, 44, 60, 0.18);
+}
+
+.fatal-error h1 {
+  margin: 0 0 0.75rem;
+}
+
+.fatal-error p {
+  margin: 0.35rem 0;
+  line-height: 1.5;
+}
+
 @keyframes pokemon-float {
   0%,
   100% {
@@ -391,6 +541,41 @@ img {
   }
 }
 
+@keyframes intro-pop {
+  0% {
+    transform: scale(0.6) rotate(-18deg);
+  }
+  60% {
+    transform: scale(1.04) rotate(8deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes intro-fade {
+  0%,
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes logo-breathe {
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: scale(1) translateY(0);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.03) translateY(-6px);
+  }
+}
+
 @media (max-width: 480px) {
   .pokedex-shell {
     width: min(100%, 320px);
@@ -403,6 +588,11 @@ img {
   .screen-image {
     width: 150px;
     height: 150px;
+  }
+
+  .intro-pokeball {
+    width: 92px;
+    height: 92px;
   }
 }
 

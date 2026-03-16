@@ -2,6 +2,16 @@ const API_URL = "https://pokeapi.co/api/v2";
 export const DEFAULT_LIMIT = Number(process.env.POKEDEX_LIMIT ?? "151");
 const REVALIDATE_SECONDS = 60 * 60 * 12;
 
+export class PokemonQueryError extends Error {
+  code: "NOT_FOUND" | "API_ERROR";
+
+  constructor(code: "NOT_FOUND" | "API_ERROR", message: string) {
+    super(message);
+    this.name = "PokemonQueryError";
+    this.code = code;
+  }
+}
+
 type NamedApiResource = {
   name: string;
   url: string;
@@ -108,14 +118,24 @@ export type PokemonListResult = {
 };
 
 async function fetchFromPokeApi<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    next: {
-      revalidate: REVALIDATE_SECONDS,
-    },
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      next: {
+        revalidate: REVALIDATE_SECONDS,
+      },
+    });
+  } catch {
+    throw new PokemonQueryError("API_ERROR", "Nao foi possivel conectar a PokeAPI.");
+  }
+
+  if (response.status === 404) {
+    throw new PokemonQueryError("NOT_FOUND", `Pokemon nao encontrado para ${path}.`);
+  }
 
   if (!response.ok) {
-    throw new Error(`Erro ao buscar ${path} na PokeAPI.`);
+    throw new PokemonQueryError("API_ERROR", `Erro ao buscar ${path} na PokeAPI.`);
   }
 
   return response.json() as Promise<T>;
@@ -126,6 +146,14 @@ function toTitleCase(value: string) {
     .split(/[-\s]+/)
     .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
     .join(" ");
+}
+
+function normalizeText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
 }
 
 function formatFlavorText(entries: FlavorTextEntry[]) {
@@ -173,13 +201,13 @@ export async function getPokemonTypes() {
 }
 
 export async function getPokemonList(filters: PokemonListFilters = {}): Promise<PokemonListResult> {
-  const query = filters.query?.trim().toLowerCase() ?? "";
+  const query = normalizeText(filters.query ?? "");
   const currentPage = Math.max(filters.page ?? 1, 1);
   const pageSize = filters.pageSize ?? 12;
   const availableTypes = await getPokemonTypes();
   const index = await getPokemonIndex(filters.type);
 
-  const filtered = index.filter((item) => item.name.includes(query));
+  const filtered = index.filter((item) => normalizeText(item.name).includes(query));
   const totalItems = filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -243,7 +271,7 @@ export async function getPokemonDetails(slug: string): Promise<PokemonDetails> {
 }
 
 export async function getPokemonByQuery(query?: string): Promise<PokemonDetails> {
-  const normalized = query?.trim().toLowerCase();
+  const normalized = normalizeText(query ?? "");
 
   if (!normalized) {
     return getPokemonDetails("1");
@@ -254,5 +282,18 @@ export async function getPokemonByQuery(query?: string): Promise<PokemonDetails>
     return getPokemonDetails(String(id));
   }
 
-  return getPokemonDetails(normalized);
+  const index = await getPokemonIndex();
+  const exactMatch = index.find((item) => normalizeText(item.name) === normalized);
+
+  if (exactMatch) {
+    return getPokemonDetails(exactMatch.name);
+  }
+
+  const partialMatch = index.find((item) => normalizeText(item.name).includes(normalized));
+
+  if (partialMatch) {
+    return getPokemonDetails(partialMatch.name);
+  }
+
+  throw new PokemonQueryError("NOT_FOUND", `Pokemon nao encontrado para a busca "${query}".`);
 }
